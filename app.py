@@ -3,6 +3,41 @@ import re
 import math
 import plotly.graph_objects as go
 from audio_recorder_streamlit import audio_recorder
+import mysql.connector
+
+# =====================================================================
+# 0. NATIVE DATABASE CONNECTOR
+# =====================================================================
+def save_metrics_to_mysql(name, employee_id, wpm, fillers, tier, grammar, vocab, conciseness, impact):
+    """Establishes direct connection to local database without st.secrets dependencies."""
+    try:
+        connection = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="Lingesh@2810",
+            database="ct",
+            port=3306
+        )
+        
+        cursor = connection.cursor()
+        
+        insert_query = """
+        INSERT INTO trainee_evaluations 
+        (trainee_name, emp_id, speaking_wpm, filler_words, speech_tier, grammar_score, vocabulary_score, conciseness_score, impact_score) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        record_payload = (name, employee_id, wpm, fillers, tier, grammar, vocab, conciseness, impact)
+        
+        cursor.execute(insert_query, record_payload)
+        connection.commit()  
+        
+        cursor.close()
+        connection.close()
+        return True
+    except Exception as db_error:
+        print(f"Database Ingestion Failure Log: {str(db_error)}")
+        return False
 
 # =====================================================================
 # 1. INITIAL CONSTRAINTS & CONFIGURATION
@@ -78,7 +113,7 @@ if trainee_name and emp_id:
             }, 500);
         </script>
         """
-        st.components.v1.html(strict_security_js, height=0, width=0)
+        st.markdown(strict_security_js, unsafe_allow_html=True)
 
         if st.query_params.get("security_breach") == "true":
             st.session_state.security_flagged = True
@@ -123,7 +158,6 @@ if not st.session_state.exam_submitted:
         
         if audio_payload:
             st.audio(audio_payload, format="audio/wav")
-            # Calculate true running file time durations safely
             st.session_state.audio_duration = max(len(audio_payload) / 32000, 1.0)
 
     with written_area.container():
@@ -133,13 +167,13 @@ if not st.session_state.exam_submitted:
         if candidate_essay:
             st.session_state.candidate_essay = candidate_essay
 
-# Default metric fallbacks inside state architecture
+# Default fallbacks
 calculated_wpm = 10.7
 detected_fillers = 0
 assigned_speech_tier = "Beginner"
 
 # =====================================================================
-# 6. SUBMISSION TRIGGER & REAL-TIME EVALUATION ALGORITHMS
+# 6. SUBMISSION TRIGGER & COMPLETE DYNAMIC EVALUATION ENGINE
 # =====================================================================
 if not st.session_state.exam_submitted:
     with submit_button_area.container():
@@ -147,15 +181,11 @@ if not st.session_state.exam_submitted:
             if not st.session_state.get("candidate_essay"):
                 st.warning("Assessment criteria check incomplete. Please provide text input before finalizing.")
             else:
-                # -----------------------------------------------------
-                # REAL DYNAMIC METRICS PROCESSING PIPELINE
-                # -----------------------------------------------------
                 essay_text = st.session_state.candidate_essay
                 words_list = re.sub(r'[^\w\s]', '', essay_text).split()
                 total_essay_words = len(words_list)
                 unique_words = set(words_list)
                 
-                # Dynamic Speech Calculation Proxies derived from inputs
                 duration = st.session_state.get("audio_duration", 30.0)
                 fillers_found = len(re.findall(r'\b(um|uh|like|so|basically|actually)\b', essay_text, re.IGNORECASE))
                 wpm_calculated = round((total_essay_words / duration) * 60, 1)
@@ -165,19 +195,36 @@ if not st.session_state.exam_submitted:
                 
                 tier_assigned = "Advanced" if fillers_found <= 1 and wpm_calculated >= 110 else "Competent" if fillers_found <= 4 else "Beginner"
 
-                # Dynamic Written Quality Algorithm
                 vocab_richness = (len(unique_words) / total_essay_words * 100) if total_essay_words > 0 else 50
                 sentences = [s for s in re.split(r'[.!?]+', essay_text) if s.strip()]
                 total_sentences = len(sentences) if len(sentences) > 0 else 1
                 avg_sentence_len = total_essay_words / total_sentences
                 
-                # Compute performance percentages logically
                 grammar_score = max(int(100 - (fillers_found * 8) - (abs(15 - avg_sentence_len) * 2)), 30)
                 vocab_score = min(int(vocab_richness + 15), 100)
                 conciseness_score = min(int(100 - (avg_sentence_len * 1.5)), 95) if avg_sentence_len > 12 else 90
                 impact_score = min(int((grammar_score + vocab_score) / 2 + 5), 100)
                 
-                # Save dynamic metrics back into State Cache Arrays
+                if avg_sentence_len >= 14 and avg_sentence_len <= 22:
+                    strength_msg = f"• Excellent structural pacing averaging {round(avg_sentence_len, 1)} words per phrase."
+                elif avg_sentence_len < 14:
+                    strength_msg = "• Crisp and punchy structural cadence, promoting fast delivery compression formats."
+                else:
+                    strength_msg = "• High descriptive capacity with elaborate architectural structuring profiles."
+
+                if vocab_score < 70:
+                    weakness_msg = "• Passive vocabulary style: Lacks results-oriented business vocabulary words."
+                    plan_msg = "STEP 1: Integrate dynamic professional focus terms (e.g., use 'optimized', 'executed', or 'leveraged') to maximize semantic authority configurations."
+                elif fillers_found > 3:
+                    weakness_msg = f"• High conversational hesitation index: Observed {fillers_found} explicit filler word markers within syntactic units."
+                    plan_msg = "STEP 1: Implement structural speech pacing adjustments. Pause intentionally between conceptual statements instead of injecting placeholder metrics."
+                elif grammar_score < 70:
+                    weakness_msg = "• Varied syntactical alignment: Sentence structures deviate from concise active-voice constraints."
+                    plan_msg = "STEP 1: Restructure compound sentences into active, subject-driven structural elements to increase grammar clarity variables."
+                else:
+                    weakness_msg = "• Minor layout pacing variations: Sentence structural balance could handle more stylistic variance."
+                    plan_msg = "STEP 1: Practice variable sentence phrasing lengths to maximize delivery impact profiles across corporate analytics reporting tasks."
+
                 st.session_state.calculated_wpm = wpm_calculated
                 st.session_state.detected_fillers = fillers_found
                 st.session_state.assigned_speech_tier = tier_assigned
@@ -186,22 +233,35 @@ if not st.session_state.exam_submitted:
                 st.session_state.conciseness_score = conciseness_score
                 st.session_state.impact_score = impact_score
                 st.session_state.avg_len = avg_sentence_len
+                st.session_state.dynamic_strength = strength_msg
+                st.session_state.dynamic_weakness = weakness_msg
+                st.session_state.dynamic_plan = plan_msg
+
+                save_metrics_to_mysql(
+                    name=trainee_name,
+                    employee_id=emp_id,
+                    wpm=wpm_calculated,
+                    fillers=fillers_found,
+                    tier=tier_assigned,
+                    grammar=grammar_score,
+                    vocab=vocab_score,
+                    conciseness=conciseness_score,
+                    impact=impact_score
+                )
                 
                 st.session_state.exam_submitted = True
                 st.rerun()
 
 # =====================================================================
-# 7. THE EXCLUSIVE REPORT VIEW LAYER WITH PRINT BUTTON
+# 7. THE EXCLUSIVE REPORT VIEW LAYER WITH PRINT RUNS
 # =====================================================================
 if st.session_state.exam_submitted:
-    # Clear all test inputs to leave a clean slate
     header_area.empty()
     auth_area.empty()
     spoken_area.empty()
     written_area.empty()
     submit_button_area.empty()
     
-    # Retrieve dynamic metrics from state
     wpm_stat = st.session_state.get("calculated_wpm", calculated_wpm)
     fillers_stat = st.session_state.get("detected_fillers", detected_fillers)
     tier_stat = st.session_state.get("assigned_speech_tier", assigned_speech_tier)
@@ -209,15 +269,16 @@ if st.session_state.exam_submitted:
     v_score = st.session_state.get("vocab_score", 65)
     c_score = st.session_state.get("conciseness_score", 95)
     i_score = st.session_state.get("impact_score", 40)
-    avg_len = st.session_state.get("avg_len", 17.0)
     essay_saved = st.session_state.get("candidate_essay", "")
     
-    # Render Metadata Authentication block inside the final printable layout context
+    final_strength = st.session_state.get("dynamic_strength", "")
+    final_weakness = st.session_state.get("dynamic_weakness", "")
+    final_plan = st.session_state.get("dynamic_plan", "")
+    
     st.markdown("<h2 style='text-align: center; color: #1E88E5; font-family:Sans-Serif; margin-bottom: 2px;'>OFFICIAL ASSESSMENT PERFORMANCE SCORECARD</h2>", unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: center; font-size:15px; font-family:Sans-Serif; font-weight:bold; margin-top:0px;'>TRAINEE NAME: {trainee_name.upper()} | EMP ID: {emp_id.upper()}</p>", unsafe_allow_html=True)
     st.markdown("<hr style='border: 1px solid #1E88E5; margin-bottom: 20px;'>", unsafe_allow_html=True)
     
-    # Render Report Metrics Columns
     left_report_pane, right_report_pane = st.columns([1, 1])
     
     with left_report_pane:
@@ -267,7 +328,7 @@ if st.session_state.exam_submitted:
             height=320,
             margin=dict(l=40, r=40, t=20, b=20)
         )
-        st.plotly_chart(fig, use_container_width=False)
+        st.plotly_chart(fig, width='content')
 
     st.markdown("<hr style='border: 0.5px solid #ccc;'>", unsafe_allow_html=True)
     st.markdown("### Evaluation Insights Summary")
@@ -275,31 +336,36 @@ if st.session_state.exam_submitted:
     ins_col1, ins_col2 = st.columns(2)
     with ins_col1:
         st.markdown("**Identified Core Strengths:**")
-        st.write(f"• Excellent structural pacing averaging {round(avg_len, 1)} words per phrase.")
+        st.write(final_strength)
     with ins_col2:
         st.markdown("**Flagged Weakness Metrics:**")
-        if fillers_stat > 2:
-            st.write(f"• High frequency of unvocalized patterns: {fillers_stat} hesitation tokens noticed.")
-        else:
-            st.write("• Passive vocabulary style: Lacks results-oriented business vocabulary words.")
-            
+        st.write(final_weakness)
+        
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div style='background-color:#f0f7fc; padding:15px; border-radius:5px; border-left: 5px solid #1E88E5; color: #000;'>", unsafe_allow_html=True)
     st.markdown("#### Actionable Tactical Plan")
-    st.markdown("STEP 1: Integrate dynamic professional focus terms (e.g., use 'optimized' or 'executed').")
+    st.markdown(final_plan)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Print button configuration layer
     st.markdown("<br><hr>", unsafe_allow_html=True)
     
-    print_js_button = """
-    <script>
-        function triggerCleanPrint() {
-            window.parent.print();
-        }
-    </script>
-    <button onclick="triggerCleanPrint()" style="background-color: #1E88E5; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%;">
-        Download Scorecard as PDF
-    </button>
-    """
-    st.components.v1.html(print_js_button, height=60)
+    st.components.v1.html("""
+<button id="printBtn" style="
+    background-color: #1E88E5;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    width: 100%;">
+    Download Scorecard as PDF
+</button>
+
+<script>
+document.getElementById("printBtn").onclick = function() {
+    parent.window.print();
+};
+</script>
+""", height=60)
