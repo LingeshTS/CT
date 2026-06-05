@@ -127,7 +127,7 @@ if not st.session_state.exam_submitted:
     with written_area.container():
         st.markdown("---")
         st.markdown("Writing Evaluation")
-        candidate_essay = st.text_area("Type your essay response cleanly below (Copy/Paste Protected):", height=150)
+        candidate_essay = st.text_area("Type your essay response:", height=150)
 
 calculated_wpm = 10.7
 ##extracted_transcript = "Minnesota State Lottery results"
