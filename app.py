@@ -107,7 +107,7 @@ if not st.session_state.exam_submitted:
             1. Click the microphone icon below to <strong>START</strong> recording.<br>
             2. Speak clearly into your device microphone.<br>
             3. <strong>NOTE</strong> The recording automatically stops once you stop speaking. Else click the icon a <strong>SECOND TIME</strong> to finalize and save.<br>
-            Green - Recording<br>Red - Idle.<br>
+            <strong>Green</strong> - Recording<br><strong>Red</strong> - Idle.<br>
         </div>
         """, unsafe_allow_html=True)
 
