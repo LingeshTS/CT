@@ -106,7 +106,8 @@ if not st.session_state.exam_submitted:
             <strong>How to Record Your Audio Response:</strong><br>
             1. Click the microphone icon below to <strong>START</strong> recording.<br>
             2. Speak clearly into your device microphone.<br>
-            3. Click the icon a <strong>SECOND TIME</strong> to finalize and save.
+            3. <strong>NOTE</strong> The recording automatically stops once you stop speaking. Else click the icon a <strong>SECOND TIME</strong> to finalize and save.<br>
+            4. Green - Recording, Red - Idle.<br>
         </div>
         """, unsafe_allow_html=True)
 
